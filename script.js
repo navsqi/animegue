@@ -1,30 +1,22 @@
-$(document).ready(function(){
-  // handle event submit
-  $("form").on("submit", function(e){
-    // prevent default action
-    e.preventDefault();
-    // get anime title from input text
-    let animeTitle = $("#animeTitle").val();
+let inputHandler = document.querySelector("#animeTitle");
 
-    $.ajax({
-      type: "GET",
-      url: "https://api.jikan.moe/v3/search/anime?page=1&q="+animeTitle+"&limit=12",
-      success: function(data){
-        let animes = data.results;
-        // mapping data anime to html element
-        let listAnime = animes.map(function(anime){
-          // get mal ID
-          let malID = anime.mal_id;
-          // call viewDetailAnime to fill the detail elements
-          let viewDetail = viewDetailAnime(malID);
-          // get date from format yyyy-mm-dd into yyyy
-          let date = (anime.start_date) ? anime.start_date.split("-")[0] : "unknown";
-          return `
-          <div class="modal fade" id="${anime.mal_id}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+inputHandler.addEventListener("change", function(e){
+  let animeTitle = e.target.value;
+  let animes = fetch("https://api.jikan.moe/v3/search/anime?page=1&q="+animeTitle+"&limit=12");
+
+  animes
+    .then(response => response.json())
+    .then(response => {
+      listAnime = response.results;
+      // get discovered animes
+      let animeCard = listAnime.map(r => {
+      // get detail
+      let detail = getDetail(r.mal_id).then(res => {
+            return `<div class="modal fade" id="${res.mal_id}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
             <div class="modal-dialog" role="document">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title" id="exampleModalLabel">${anime.title}</h5>
+                  <h5 class="modal-title" id="exampleModalLabel">${res.title}</h5>
                   <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                   </button>
@@ -32,12 +24,12 @@ $(document).ready(function(){
                 <div class="modal-body">
                   <div class="row">
                     <div class="col-lg-3">
-                      <img src="${anime.image_url}" class="card-img-top" alt="">
+                      <img src="${res.image_url}" class="card-img-top" alt="">
                     </div>
                     <div class="col-lg-9">
                     <ul class="list-group list-group-flush">
-                      <li class="list-group-item"><strong>Title: </strong>${anime.title}</li>
-                      <li id="${malID}" class="list-group-item synopsis"><strong>Sypnosis: </strong></li>
+                      <li class="list-group-item"><strong>Title: </strong>${res.title}</li>
+                      <li id="${res.map_id}" class="list-group-item synopsis"><strong>Sypnosis: </strong>${res.synopsis}</li>
                     </ul>
                     </div>
                   </div>
@@ -48,56 +40,41 @@ $(document).ready(function(){
               </div>
             </div>
           </div>
+          </div>`;
+        });
+      // show detail
+      detail.then(res => {
+        let el1 = document.createElement("span");
+        el1.innerHTML = res;
+        document.querySelector("#animeWrapper").appendChild(el1);
+      })
+        // list anime
+        return `<div class="col-lg-3 col-md-4 col-6 my-3">
+        <div class="card">
+          <img src="${r.image_url}" class="card-img-top" alt="">
+          <div class="card-body">
+            <h5 class="card-title">${r.title}</h5>
+            <h6 class="card-subtitle mb-2 text-muted"></h6>
+            <button id="details" data-toggle="modal" data-target="#${r.mal_id}"class="btn btn-primary mt-1 details">View Detail</button>
           </div>
-
-          <div class="col-lg-3 col-md-4 col-6 my-3">
-            <div class="card">
-              <img src="${anime.image_url}" class="card-img-top" alt="">
-              <div class="card-body">
-                <h5 class="card-title">${anime.title}</h5>
-                <h6 class="card-subtitle mb-2 text-muted">${date}</h6>
-                <button id="details" data-toggle="modal" data-target="#${anime.mal_id}"class="btn btn-primary mt-1">View Detail</button>
-              </div>
-            </div>
-            </div>`;
-         });
-        //  append the listanime's elements
-         $("#animeWrapper").empty();
-         $("#animeWrapper").append(listAnime);
-      },
-      error: (e) => {
-        console.log(e.responseText);
-      }
+        </div>
+        </div>`;
+      }).join("");
+      // show discovered animes
+      document.querySelector("#animeWrapper").innerHTML = animeCard;
+      
     });
-
-  });
-
-  // handle the detail modal
-  let count = 0;
-  function handleData(responseData){
-    let elements = $(".synopsis");
-    // check if id's element equals to mal_id
-    if($(elements[count]).attr("id") == responseData.mal_id){
-      // append sypnosis into element
-      $(elements[count]).append(responseData.synopsis);
-      count += 1;
-    }
-  }
-  
-  // request Detail Anime
-  function viewDetailAnime(malID){
-    $.ajax({
-      method: "GET",
-      url: "https://api.jikan.moe/v3/anime/"+malID,
-      success: (animeDetail) => {
-        // callback
-        // we can't return in success of ajax (becasuse this is Asynchronous)
-        // it will execute before the function you pass as success callback was even called.
-        handleData(animeDetail);
-      }
-    });
-  
-  }
-  
 });
+
+// get detail anime
+function getDetail(mal_id){
+      return fetch("https://api.jikan.moe/v3/anime/"+mal_id)
+      .then(res => res.json())
+      .then(animeDetail => animeDetail);
+}
+
+
+
+
+
 
